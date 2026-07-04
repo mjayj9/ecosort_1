@@ -1,6 +1,5 @@
 package com.example.network
 
-import com.example.BuildConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -11,6 +10,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
+import retrofit2.http.Query
 import retrofit2.http.Streaming
 
 // --- Common Data Classes ---
@@ -76,23 +76,15 @@ data class Candidate(
 // --- Retrofit Setup ---
  
 interface GeminiApiService {
-    @POST("analyzeImage")
+    @POST("v1beta/models/gemini-1.5-flash:generateContent")
     suspend fun generateContent(
+        @Query("key") apiKey: String,
         @Body request: GenerateContentRequest
     ): GenerateContentResponse
 }
  
 object RetrofitClient {
-    private val BASE_URL: String
-        get() {
-            // BuildConfig.FUNCTIONS_BASE_URL이 비어있으면 기본 주소(us-central1) 사용
-            val url = BuildConfig.FUNCTIONS_BASE_URL
-            return if (url.isEmpty() || url == "MY_FUNCTIONS_BASE_URL") {
-                "https://us-central1-focused-rig-vcf5x.cloudfunctions.net/"
-            } else {
-                if (url.endsWith("/")) url else "$url/"
-            }
-        }
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/"
  
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
