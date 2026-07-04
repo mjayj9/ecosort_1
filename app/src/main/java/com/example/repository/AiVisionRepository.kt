@@ -35,11 +35,6 @@ fun Bitmap.toBase64AndResize(): String {
 
 object AiVisionRepository {
     suspend fun analyzeWasteImage(bitmap: Bitmap): String? = withContext(Dispatchers.IO) {
-        val apiKey = BuildConfig.GEMINI_API_KEY
-        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-            return@withContext """{"error": "API Key is missing."}"""
-        }
-
         val prompt = """
             너는 배달 쓰레기 분리배출 전문가 AI야.
             사용자가 찍은 배달 쓰레기 사진을 보고, 아래 정보를 정확히 JSON 형태로만 반환해 줘.
@@ -89,7 +84,7 @@ object AiVisionRepository {
         )
 
         try {
-            val response = RetrofitClient.service.generateContent(apiKey, requestBody)
+            val response = RetrofitClient.service.generateContent(requestBody)
             response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
         } catch (e: retrofit2.HttpException) {
             if (e.code() == 429) {
@@ -107,11 +102,6 @@ object AiVisionRepository {
     }
 
     suspend fun verifyDisposalBackground(bitmap: Bitmap): String? = withContext(Dispatchers.IO) {
-        val apiKey = BuildConfig.GEMINI_API_KEY
-        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-            return@withContext """{"error": "API Key is missing."}"""
-        }
-
         val prompt = """
             사용자가 쓰레기를 버리고 촬영한 인증 사진이야.
             배경이나 주변에 쓰레기통, 분리수거함, 분리배출 장소, 종량제 봉투 등이 명확히 보이는지 확인해.
@@ -138,7 +128,7 @@ object AiVisionRepository {
         )
 
         try {
-            val response = RetrofitClient.service.generateContent(apiKey, requestBody)
+            val response = RetrofitClient.service.generateContent(requestBody)
             response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
         } catch (e: retrofit2.HttpException) {
             if (e.code() == 429) {
