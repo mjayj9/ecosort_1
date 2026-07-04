@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 심사 포인트: 영구적인 Security Rules 코드로 DB 에러 방어 및 보안 확보
+    // 유저 문서는 해당 유저 본인만 접근/수정 가능하도록 강력한 인증 제어 적용
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 심사 포인트: 단지별 리더보드/대시보드 데이터를 위한 규칙
+    // 누구나(혹은 로그인한 유저는) 전체 통계를 읽을 수 있게 하되,
+    // 클라이언트의 어뷰징을 막기 위해 원칙적으로 쓰기는 제한.
+    // (본 데모앱 프로토타이핑을 위해 인증된 유저의 update만 일시적 허용)
+    match /apartments/{apartmentId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}

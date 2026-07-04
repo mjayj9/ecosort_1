@@ -1,0 +1,6 @@
+{
+  "name": "에코소트 (EcoSort)",
+  "description": "AI 기반 배달 쓰레기 분리배출 도우미 웹앱 (안드로이드 네이티브 최적화 버전)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
