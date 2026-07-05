@@ -20,6 +20,8 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 // Firebase 초기화 확인 헬퍼
 fun checkFirebaseInitialized(): Boolean {
@@ -38,6 +40,8 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
     var emailInput by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var showSimulatedLoginDialog by remember { mutableStateOf(false) }
+    var showPrivacyAgreementDialog by remember { mutableStateOf(false) }
+    var pendingEmail by remember { mutableStateOf("") }
     
     val isFirebaseAvailable = remember { checkFirebaseInitialized() }
 
@@ -59,8 +63,13 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                 savedAptId.isNullOrEmpty()
             }
             
-            isLoading = false
-            onLoginSuccess(isNewUser)
+            if (isNewUser) {
+                pendingEmail = email
+                showPrivacyAgreementDialog = true
+            } else {
+                isLoading = false
+                onLoginSuccess(false)
+            }
         }
     }
 
@@ -278,6 +287,58 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
             confirmButton = {
                 TextButton(onClick = { showSimulatedLoginDialog = false }) {
                     Text("취소")
+                }
+            }
+        )
+    }
+
+    if (showPrivacyAgreementDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showPrivacyAgreementDialog = false
+                isLoading = false
+            },
+            title = { Text("개인정보 수집 및 이용 동의 (필수)") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text("에코소트 서비스 가입 및 이용을 위해 아래와 같이 개인정보를 수집하고 이용합니다.", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Text("1. 수집하는 개인정보 항목", fontWeight = FontWeight.Bold)
+                    Text("이메일 주소, 소속 아파트 단지 정보, 서비스 이용 기록, 분리배출 촬영 사진(재질 판독 및 장소 인증)")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text("2. 개인정보 수집 및 이용 목적", fontWeight = FontWeight.Bold)
+                    Text("AI 기반 배달 쓰레기 오염도 분석 및 분리배출 인증 처리, 리워드 에코 포인트 적립 및 제휴처 상품권 교환 서비스 제공")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text("3. 개인정보 보유 및 이용 기간", fontWeight = FontWeight.Bold)
+                    Text("회원 탈퇴 시 즉시 파기 (단, 법령에 특별한 규정이 있는 경우 관련 법령에 따름)")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text("※ 귀하는 개인정보 수집 및 이용에 대한 동의를 거부할 권리가 있습니다. 단, 동의 거부 시 에코소트 서비스 가입 및 이용이 제한됩니다.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPrivacyAgreementDialog = false
+                        isLoading = false
+                        onLoginSuccess(true)
+                    }
+                ) {
+                    Text("동의하고 시작하기")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showPrivacyAgreementDialog = false
+                        isLoading = false
+                        Toast.makeText(context, "개인정보 수집에 동의하셔야 가입이 가능합니다.", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("동의하지 않음")
                 }
             }
         )
