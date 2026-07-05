@@ -265,7 +265,7 @@ fun AiScannerScreen() {
                     
                     if (verifyDisposalSecurity(newHash)) {
                         isLoading = true
-                        val resultStr = AiVisionRepository.verifyDisposalBackground(bitmap)
+                        val resultStr = AiVisionRepository.verifyDisposalBackground(context, capturedImage!!, bitmap)
                         isLoading = false
                         try {
                             val cleanResult = resultStr?.replace("```json", "")?.replace("```", "")?.trim()
@@ -319,7 +319,7 @@ fun AiScannerScreen() {
                         if (verifyDisposalSecurity(newHash)) {
                             isLoading = true
                             coroutineScope.launch {
-                                val resultStr = AiVisionRepository.verifyDisposalBackground(bitmap)
+                                val resultStr = AiVisionRepository.verifyDisposalBackground(context, capturedImage!!, bitmap)
                                 isLoading = false
                                 try {
                                     val cleanResult = resultStr?.replace("```json", "")?.replace("```", "")?.trim()

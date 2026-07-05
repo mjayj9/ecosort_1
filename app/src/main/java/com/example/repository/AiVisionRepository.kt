@@ -128,19 +128,29 @@ object AiVisionRepository {
         """{"error": "$lastErrorMsg"}"""
     }
 
-    suspend fun verifyDisposalBackground(bitmap: Bitmap): String? = withContext(Dispatchers.IO) {
+    suspend fun verifyDisposalBackground(
+        context: android.content.Context,
+        wasteBitmap: Bitmap,
+        disposalBitmap: Bitmap
+    ): String? = withContext(Dispatchers.IO) {
         val prompt = """
-            사용자가 쓰레기를 버리고 촬영한 인증 사진이야.
-            배경이나 주변에 쓰레기통, 분리수거함, 분리배출 장소, 종량제 봉투 등이 명확히 보이는지 확인해.
-            오직 JSON 형태의 정보만 응답해줘.
+            너는 분리배출 인증 어뷰징(악용)을 잡아내는 보안 AI 전문가야.
+            
+            [미션]
+            사용자가 첫 번째 이미지(스캔 단계)에서 촬영한 쓰레기 용품(이미지 1)이, 두 번째 이미지(배출 단계)의 분리수거장/쓰레기통 사진(이미지 2)에서 실제로 투입되고 있거나 버려진 상태인지 교차 검증해줘.
+            
+            [어뷰징 판정 가이드라인]
+            1. 쓰레기 일치 여부 대조: 이미지 1의 쓰레기(용기의 크기, 형태, 색상, 고유 라벨 등 시각적 특징)가 이미지 2의 배출장 사진 속에 반드시 포함되어 있어야 해. 전혀 엉뚱한 쓰레기통만 찍어 보내거나 이미지 1의 쓰레기가 이미지 2에서 확인되지 않으면 거절("통과": false) 처리해줘.
+            2. 올바른 배출 공간 대조: 이미지 2는 반드시 아파트 분리수거장, 수거함, 종량제 봉투 배출구역 등 공용 쓰레기 수거장 배경이어야 해. 일반 침실, 책상, 거실 등 개인적인 실내 공간이 배경이면 거절("통과": false)해줘.
+            3. 이미지 도용/재사용 대조: 이미지 1과 이미지 2가 완전히 똑같은 사진이거나 쓰레기통의 단순 재탕이면 거절해줘.
+            
+            오직 아래 JSON 규격으로만 답변해줘.
             
             [JSON 응답 형식]
             {
-              "통과": true,
-              "사유": "분리수거함 및 쓰레기가 올바르게 확인되었습니다."
+              "통과": true/false,
+              "사유": "어뷰징 판정 이유를 구체적으로 한글로 적어줘. (예: 이미지 1의 붉은 양념 묻은 흰색 플라스틱 배달 용기가 이미지 2의 플라스틱 수거함 내부에 투입된 것이 식별되었습니다. / 이미지 1의 녹색 페트병이 이미지 2의 수거함 주변에서 확인되지 않아 반려합니다.)"
             }
-            
-            만약 쓰레기통, 분리수거함, 종량제 봉투 등이 보이지 않거나 집 안의 일반 방, 침대, 책상 등 일반 배경이라면 "통과"를 false로 주고 "사유"에 왜 거절되었는지 (예: 쓰레기통이 보이지 않음) 적어줘.
         """.trimIndent()
 
         val requestBody = GenerateContentRequest(
@@ -148,7 +158,8 @@ object AiVisionRepository {
                 Content(
                     parts = listOf(
                         Part(text = prompt),
-                        Part(inlineData = InlineData(mimeType = "image/jpeg", data = bitmap.toBase64AndResize()))
+                        Part(inlineData = InlineData(mimeType = "image/jpeg", data = wasteBitmap.toBase64AndResize())),
+                        Part(inlineData = InlineData(mimeType = "image/jpeg", data = disposalBitmap.toBase64AndResize()))
                     )
                 )
             )
