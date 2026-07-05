@@ -1,31 +1,26 @@
 {
   "project_info": {
-    "project_number": "595387634191",
-    "project_id": "focused-rig-vcf5x",
-    "storage_bucket": "focused-rig-vcf5x.appspot.com"
+    "project_number": "181727200650",
+    "project_id": "studio-4335756557-ed258",
+    "storage_bucket": "studio-4335756557-ed258.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:595387634191:android:1ea3a189f38f72c050a41d",
+        "mobilesdk_app_id": "1:181727200650:android:2c1301ef333be0578bf473",
         "android_client_info": {
           "package_name": "com.aistudio.ecosort.kxmpzq"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "595387634191-mockid.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "mock_api_key_for_build"
+          "current_key": "AIzaSyCveFhS7ZHQqD4zc4_LpqNvjPz7c7z2AxU"
         }
       ],
       "services": {
-        "appdetect_service": {
-          "status": 1
+        "appinvite_service": {
+          "other_platform_oauth_client": []
         }
       }
     }
