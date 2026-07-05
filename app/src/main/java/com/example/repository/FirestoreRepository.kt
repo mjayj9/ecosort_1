@@ -92,4 +92,47 @@ object FirestoreRepository {
             false
         }
     }
+
+    // 유저 프로필(포인트, 소속 아파트) 가져오기
+    suspend fun loadUserProfile(): Map<String, Any>? {
+        val fs = firestore ?: return null
+        val au = auth ?: return null
+        val userId = au.currentUser?.uid ?: return null
+        val userRef = fs.collection("users").document(userId)
+        
+        return try {
+            val doc = userRef.get().await()
+            if (doc.exists()) {
+                doc.data
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    // 아파트 선택 시 바로 파이어베이스에 소속 정보 등록
+    suspend fun saveUserApartment(apartmentId: String): Boolean {
+        val fs = firestore ?: return false
+        val au = auth ?: return false
+        val userId = au.currentUser?.uid ?: return false
+        val userRef = fs.collection("users").document(userId)
+        
+        return try {
+            fs.runTransaction { transaction ->
+                val snapshot = transaction.get(userRef)
+                if (!snapshot.exists()) {
+                    transaction.set(userRef, hashMapOf("points" to 0L, "apartmentId" to apartmentId))
+                } else {
+                    transaction.update(userRef, "apartmentId", apartmentId)
+                }
+            }.await()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }

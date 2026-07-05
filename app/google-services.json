@@ -1,0 +1,34 @@
+{
+  "project_info": {
+    "project_number": "595387634191",
+    "project_id": "focused-rig-vcf5x",
+    "storage_bucket": "focused-rig-vcf5x.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:595387634191:android:1ea3a189f38f72c050a41d",
+        "android_client_info": {
+          "package_name": "com.aistudio.ecosort.kxmpzq"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "595387634191-mockid.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "mock_api_key_for_build"
+        }
+      ],
+      "services": {
+        "appdetect_service": {
+          "status": 1
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

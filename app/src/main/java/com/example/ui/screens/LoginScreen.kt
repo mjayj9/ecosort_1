@@ -40,6 +40,29 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
     
     val isFirebaseAvailable = remember { checkFirebaseInitialized() }
 
+    val handleLoginSuccess = { email: String ->
+        coroutineScope.launch {
+            val profile = com.example.repository.FirestoreRepository.loadUserProfile()
+            val savedAptId = profile?.get("apartmentId") as? String
+            val savedPoints = (profile?.get("points") as? Long)?.toInt() ?: 0
+            
+            if (!savedAptId.isNullOrEmpty()) {
+                GlobalState.currentPoints = savedPoints
+                GlobalState.loadApartmentDetails(context, savedAptId)
+            }
+            
+            // mjayj9@gmail.com 관리자 계정은 항상 신규 유저 취소(설정 화면 진입) 처리
+            val isNewUser = if (email == "mjayj9@gmail.com") {
+                true
+            } else {
+                savedAptId.isNullOrEmpty()
+            }
+            
+            isLoading = false
+            onLoginSuccess(isNewUser)
+        }
+    }
+
     // 실제 구글 로그인 연동 런처
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -53,37 +76,33 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                     val credential = GoogleAuthProvider.getCredential(idToken, null)
                     FirebaseAuth.getInstance().signInWithCredential(credential)
                         .addOnCompleteListener { authTask ->
-                            isLoading = false
                             if (authTask.isSuccessful) {
                                 val email = authTask.result?.user?.email ?: account.email ?: "mjayj9@gmail.com"
                                 GlobalState.userEmail = email
                                 Toast.makeText(context, "구글 계정으로 로그인 성공: $email", Toast.LENGTH_SHORT).show()
-                                val isNewUser = GlobalState.apartmentId.isEmpty()
-                                onLoginSuccess(isNewUser)
+                                handleLoginSuccess(email)
                             } else {
                                 Toast.makeText(context, "Firebase 인증 실패. 시뮬레이터 모드로 로그인합니다.", Toast.LENGTH_SHORT).show()
                                 // Fallback
                                 val email = account.email ?: "mjayj9@gmail.com"
                                 GlobalState.userEmail = email
-                                onLoginSuccess(GlobalState.apartmentId.isEmpty())
+                                handleLoginSuccess(email)
                             }
                         }
                 } else {
-                    isLoading = false
                     // Fallback
                     val email = account?.email ?: "mjayj9@gmail.com"
                     GlobalState.userEmail = email
                     Toast.makeText(context, "Google 연동 로그인 (시뮬레이터)", Toast.LENGTH_SHORT).show()
-                    onLoginSuccess(GlobalState.apartmentId.isEmpty())
+                    handleLoginSuccess(email)
                 }
             } catch (e: ApiException) {
-                isLoading = false
                 e.printStackTrace()
                 // API Exception(예: 12500, 10 등 개발 키 미등록) 발생 시 시뮬레이터 로그인으로 Fallback 허용
                 val fallbackEmail = "mjayj9@gmail.com"
                 GlobalState.userEmail = fallbackEmail
                 Toast.makeText(context, "구글 API 오류로 시뮬레이터 로그인 적용: $fallbackEmail", Toast.LENGTH_LONG).show()
-                onLoginSuccess(GlobalState.apartmentId.isEmpty())
+                handleLoginSuccess(fallbackEmail)
             }
         } else {
             isLoading = false
@@ -156,12 +175,10 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                     // 시뮬레이터 로그인 작동
                     coroutineScope.launch {
                         kotlinx.coroutines.delay(800)
-                        isLoading = false
                         val finalEmail = emailInput.ifBlank { "mjayj9@gmail.com" }
                         GlobalState.userEmail = finalEmail
                         Toast.makeText(context, "시뮬레이터 로그인 성공: $finalEmail", Toast.LENGTH_SHORT).show()
-                        val isNewUser = GlobalState.apartmentId.isEmpty()
-                        onLoginSuccess(isNewUser)
+                        handleLoginSuccess(finalEmail)
                     }
                 }
             },

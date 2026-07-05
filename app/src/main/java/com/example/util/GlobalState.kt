@@ -52,4 +52,43 @@ object GlobalState {
             currentPoints += reward
         }
     }
+
+    // 소속 아파트 코드를 기반으로 자산 JSON에서 세부 정보 자동 매핑 로드
+    fun loadApartmentDetails(context: android.content.Context, code: String) {
+        try {
+            val assetManager = context.assets
+            val inputStream = assetManager.open("apartments.json")
+            val reader = java.io.BufferedReader(java.io.InputStreamReader(inputStream, "UTF-8"))
+            val jsonStr = reader.use { it.readText() }
+            val jsonArray = org.json.JSONArray(jsonStr)
+            
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                if (obj.getString("c") == code) {
+                    apartmentId = code
+                    apartmentName = obj.getString("n")
+                    apartmentAddress = obj.getString("a")
+                    
+                    // 주소 좌표 Geocoding
+                    try {
+                        val geocoder = android.location.Geocoder(context, java.util.Locale.KOREA)
+                        val addresses = geocoder.getFromLocationName(apartmentAddress, 1)
+                        if (!addresses.isNullOrEmpty()) {
+                            apartmentLatitude = addresses[0].latitude
+                            apartmentLongitude = addresses[0].longitude
+                        } else {
+                            apartmentLatitude = 37.5665
+                            apartmentLongitude = 126.9780
+                        }
+                    } catch (e: Exception) {
+                        apartmentLatitude = 37.5665
+                        apartmentLongitude = 126.9780
+                    }
+                    break
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }

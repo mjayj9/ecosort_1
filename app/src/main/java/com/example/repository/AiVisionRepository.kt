@@ -49,7 +49,7 @@ object AiVisionRepository {
     )
 
     private fun decodeKey(base64Str: String): String {
-        return String(Base64.decode(base64Str, Base64.NO_WRAP))
+        return String(Base64.decode(base64Str, Base64.URL_SAFE))
     }
 
     suspend fun analyzeWasteImage(bitmap: Bitmap): String? = withContext(Dispatchers.IO) {
@@ -106,8 +106,8 @@ object AiVisionRepository {
         var lastErrorMsg = "모든 API 키 인증 및 한도 초과 오류 발생"
 
         for (base64Key in keysToTry) {
-            val apiKey = decodeKey(base64Key)
             try {
+                val apiKey = decodeKey(base64Key)
                 val response = RetrofitClient.service.generateContent(apiKey, requestBody)
                 val resultText = response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
                 if (resultText != null) {
@@ -159,8 +159,8 @@ object AiVisionRepository {
         var lastErrorMsg = "모든 API 키 인증 및 한도 초과 오류 발생"
 
         for (base64Key in keysToTry) {
-            val apiKey = decodeKey(base64Key)
             try {
+                val apiKey = decodeKey(base64Key)
                 val response = RetrofitClient.service.generateContent(apiKey, requestBody)
                 val resultText = response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
                 if (resultText != null) {
