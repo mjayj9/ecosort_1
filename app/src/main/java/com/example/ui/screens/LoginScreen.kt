@@ -37,6 +37,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     var emailInput by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var showSimulatedLoginDialog by remember { mutableStateOf(false) }
     
     val isFirebaseAvailable = remember { checkFirebaseInitialized() }
 
@@ -172,14 +173,9 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                         googleSignInLauncher.launch(signInIntent)
                     }
                 } else {
-                    // 시뮬레이터 로그인 작동
-                    coroutineScope.launch {
-                        kotlinx.coroutines.delay(800)
-                        val finalEmail = emailInput.ifBlank { "mjayj9@gmail.com" }
-                        GlobalState.userEmail = finalEmail
-                        Toast.makeText(context, "시뮬레이터 로그인 성공: $finalEmail", Toast.LENGTH_SHORT).show()
-                        handleLoginSuccess(finalEmail)
-                    }
+                    // 시뮬레이터 로그인 작동 (계정 선택 다이얼로그 팝업 노출)
+                    isLoading = false
+                    showSimulatedLoginDialog = true
                 }
             },
             modifier = Modifier
@@ -196,6 +192,94 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                 )
             }
         }
+    }
+
+    if (showSimulatedLoginDialog) {
+        AlertDialog(
+            onDismissRequest = { showSimulatedLoginDialog = false },
+            title = { Text("구글 계정 선택 (시뮬레이터)") },
+            text = {
+                Column {
+                    Text("EcoSort에 로그인할 계정을 선택하세요.")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Button(
+                        onClick = {
+                            showSimulatedLoginDialog = false
+                            isLoading = true
+                            coroutineScope.launch {
+                                kotlinx.coroutines.delay(600)
+                                val email = "mjayj9@gmail.com"
+                                GlobalState.userEmail = email
+                                Toast.makeText(context, "시뮬레이터 로그인 성공: $email", Toast.LENGTH_SHORT).show()
+                                handleLoginSuccess(email)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) {
+                        Text("mjayj9@gmail.com (관리자)")
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Button(
+                        onClick = {
+                            showSimulatedLoginDialog = false
+                            isLoading = true
+                            coroutineScope.launch {
+                                kotlinx.coroutines.delay(600)
+                                val email = "user123@gmail.com"
+                                GlobalState.userEmail = email
+                                Toast.makeText(context, "시뮬레이터 로그인 성공: $email", Toast.LENGTH_SHORT).show()
+                                handleLoginSuccess(email)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) {
+                        Text("user123@gmail.com (일반 사용자)")
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    OutlinedTextField(
+                        value = emailInput,
+                        onValueChange = { emailInput = it },
+                        label = { Text("이메일 직접 입력...") },
+                        placeholder = { Text("example@gmail.com") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Button(
+                        onClick = {
+                            if (emailInput.isNotBlank()) {
+                                showSimulatedLoginDialog = false
+                                isLoading = true
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(600)
+                                    GlobalState.userEmail = emailInput
+                                    Toast.makeText(context, "시뮬레이터 로그인 성공: $emailInput", Toast.LENGTH_SHORT).show()
+                                    handleLoginSuccess(emailInput)
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = emailInput.isNotBlank()
+                    ) {
+                        Text("선택한 계정으로 로그인")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSimulatedLoginDialog = false }) {
+                    Text("취소")
+                }
+            }
+        )
     }
 }
 

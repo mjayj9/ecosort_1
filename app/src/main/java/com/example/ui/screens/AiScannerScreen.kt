@@ -109,7 +109,7 @@ fun AiScannerScreen() {
     var scanStep by remember { mutableStateOf(ScanStep.INITIAL) }
     var firstImageHash by remember { mutableStateOf<String?>(null) }
     var lastAnalysisTime by remember { mutableStateOf(0L) }
-    var showGuideDialog by remember { mutableStateOf(false) }
+    var showGuideDialog by remember { mutableStateOf(true) }
     
     // 사진의 촬영 GPS 및 시각 정보 보관
     var imageLatitude by remember { mutableStateOf<Double?>(null) }
