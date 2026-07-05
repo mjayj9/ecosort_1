@@ -275,6 +275,13 @@ fun AiScannerScreen() {
                             } else {
                                 val isPass = verifyJson.optBoolean("통과", false)
                                 if (isPass) {
+                                    var reward = 50
+                                    if (GlobalState.currentCount + 1 == GlobalState.targetGoal) {
+                                        reward += GlobalState.targetGoal * 20
+                                    }
+                                    coroutineScope.launch {
+                                        com.example.repository.FirestoreRepository.verifyAndReward(context, GlobalState.apartmentId, reward)
+                                    }
                                     GlobalState.addRecycle(resultJson?.optString("재질", "플라스틱") ?: "플라스틱", true)
                                     // 사용된 해시 등록
                                     firstImageHash?.let { GlobalState.usedHashes.add(it) }
@@ -322,6 +329,13 @@ fun AiScannerScreen() {
                                     } else {
                                         val isPass = verifyJson.optBoolean("통과", false)
                                         if (isPass) {
+                                            var reward = 50
+                                            if (GlobalState.currentCount + 1 == GlobalState.targetGoal) {
+                                                reward += GlobalState.targetGoal * 20
+                                            }
+                                            coroutineScope.launch {
+                                                com.example.repository.FirestoreRepository.verifyAndReward(context, GlobalState.apartmentId, reward)
+                                            }
                                             GlobalState.addRecycle(resultJson?.optString("재질", "플라스틱") ?: "플라스틱", true)
                                             // 사용된 해시 등록
                                             firstImageHash?.let { GlobalState.usedHashes.add(it) }

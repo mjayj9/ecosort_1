@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.vectorResource
 import com.example.util.GlobalState
+import androidx.compose.ui.platform.LocalContext
 import com.example.ui.components.AdBanner
 import kotlinx.coroutines.launch
 
@@ -23,6 +24,7 @@ data class ShopItem(val id: Int, val name: String, val cost: Int, val isCu: Bool
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PointShopScreen() {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var message by remember { mutableStateOf<String?>(null) }
     var showBarcodeDialog by remember { mutableStateOf(false) }
@@ -96,7 +98,7 @@ fun PointShopScreen() {
                                 onClick = {
                                     if (GlobalState.currentPoints >= item.cost) {
                                         coroutineScope.launch {
-                                            val success = com.example.repository.FirestoreRepository.exchangeCoupon(item.cost)
+                                            val success = com.example.repository.FirestoreRepository.exchangeCoupon(context, item.cost)
                                             if (success) {
                                                 GlobalState.currentPoints -= item.cost
                                                 if (item.isCu) {

@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation() {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val coroutineScope = rememberCoroutineScope()
 
@@ -55,7 +57,7 @@ fun AppNavigation() {
             ApartmentSelectionScreen(
                 onApartmentSelected = { aptName ->
                     coroutineScope.launch {
-                        com.example.repository.FirestoreRepository.saveUserApartment(aptName)
+                        com.example.repository.FirestoreRepository.saveUserApartment(context, aptName)
                     }
                     navController.navigate("main") {
                         popUpTo("login") { inclusive = true }

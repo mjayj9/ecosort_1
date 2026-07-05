@@ -5,10 +5,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
-// 심사 포인트: Firebase Transaction을 활용하여 여러 문서(포인트 증가 점수, 아파트 통계)를 
-// 중간에 충돌하거나 데이터가 꼬이지 않도록 안전하게 동시 업데이트 처리
 object FirestoreRepository {
-    // Firebase 초기화 확인 헬퍼
     private fun isFirebaseAvailable(): Boolean {
         return try {
             com.google.firebase.FirebaseApp.getInstance()
@@ -21,15 +18,19 @@ object FirestoreRepository {
     private val firestore by lazy { if (isFirebaseAvailable()) FirebaseFirestore.getInstance() else null }
     private val auth by lazy { if (isFirebaseAvailable()) FirebaseAuth.getInstance() else null }
 
-    /**
-     * 어뷰징 단계를 통과한 사용자가 최종적으로 분리배출을 완료했을 때 보상을 지급하는 함수.
-     * 트랜잭션 단위: 유저의 포인트 데이터 + 유저 소속 단지의 누적 분리수거 카운트
-     */
-    suspend fun verifyAndReward(apartmentId: String, points: Int = 50): Boolean {
+    private fun getSimPrefs(context: android.content.Context): android.content.SharedPreferences {
+        val email = com.example.util.GlobalState.userEmail.ifBlank { "mjayj9@gmail.com" }
+        return context.getSharedPreferences("ecosort_sim_data_${email.replace(".", "_")}", android.content.Context.MODE_PRIVATE)
+    }
+
+    suspend fun verifyAndReward(context: android.content.Context, apartmentId: String, points: Int = 50): Boolean {
         val fs = firestore
         val au = auth
         if (fs == null || au == null || au.currentUser == null) {
-            // Firebase 미연동 시 데모 모드로 동작 (가짜 성공 스텁 반환)
+            // Simulator Mode
+            val prefs = getSimPrefs(context)
+            val currentPoints = prefs.getLong("points", 0L)
+            prefs.edit().putLong("points", currentPoints + points).apply()
             return true
         }
 
@@ -56,7 +57,7 @@ object FirestoreRepository {
                 } else {
                     transaction.update(aptRef, "totalRecycled", FieldValue.increment(1))
                 }
-            }.await() // 트랜잭션 완료 대기
+            }.await()
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -64,13 +65,18 @@ object FirestoreRepository {
         }
     }
 
-    // 제휴처 연동 포인트 차감 (트랜잭션 처리로 중복 차감 방지)
-    suspend fun exchangeCoupon(pointsCost: Int): Boolean {
+    suspend fun exchangeCoupon(context: android.content.Context, pointsCost: Int): Boolean {
         val fs = firestore
         val au = auth
         if (fs == null || au == null || au.currentUser == null) {
-            // Firebase 미연동 시 데모 모드로 동작 (가짜 성공 스텁 반환)
-            return true
+            // Simulator Mode
+            val prefs = getSimPrefs(context)
+            val currentPoints = prefs.getLong("points", 0L)
+            if (currentPoints >= pointsCost) {
+                prefs.edit().putLong("points", currentPoints - pointsCost).apply()
+                return true
+            }
+            return false
         }
 
         val userId = au.currentUser?.uid ?: return false
@@ -93,10 +99,17 @@ object FirestoreRepository {
         }
     }
 
-    // 유저 프로필(포인트, 소속 아파트) 가져오기
-    suspend fun loadUserProfile(): Map<String, Any>? {
-        val fs = firestore ?: return null
-        val au = auth ?: return null
+    suspend fun loadUserProfile(context: android.content.Context): Map<String, Any>? {
+        val fs = firestore
+        val au = auth
+        if (fs == null || au == null || au.currentUser == null) {
+            // Simulator Mode
+            val prefs = getSimPrefs(context)
+            val points = prefs.getLong("points", 0L)
+            val apartmentId = prefs.getString("apartmentId", "") ?: ""
+            return mapOf("points" to points, "apartmentId" to apartmentId)
+        }
+        
         val userId = au.currentUser?.uid ?: return null
         val userRef = fs.collection("users").document(userId)
         
@@ -113,10 +126,16 @@ object FirestoreRepository {
         }
     }
 
-    // 아파트 선택 시 바로 파이어베이스에 소속 정보 등록
-    suspend fun saveUserApartment(apartmentId: String): Boolean {
-        val fs = firestore ?: return false
-        val au = auth ?: return false
+    suspend fun saveUserApartment(context: android.content.Context, apartmentId: String): Boolean {
+        val fs = firestore
+        val au = auth
+        if (fs == null || au == null || au.currentUser == null) {
+            // Simulator Mode
+            val prefs = getSimPrefs(context)
+            prefs.edit().putString("apartmentId", apartmentId).apply()
+            return true
+        }
+        
         val userId = au.currentUser?.uid ?: return false
         val userRef = fs.collection("users").document(userId)
         

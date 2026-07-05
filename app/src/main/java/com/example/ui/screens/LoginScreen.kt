@@ -43,7 +43,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
 
     val handleLoginSuccess = { email: String ->
         coroutineScope.launch {
-            val profile = com.example.repository.FirestoreRepository.loadUserProfile()
+            val profile = com.example.repository.FirestoreRepository.loadUserProfile(context)
             val savedAptId = profile?.get("apartmentId") as? String
             val savedPoints = (profile?.get("points") as? Long)?.toInt() ?: 0
             
@@ -107,7 +107,8 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
             }
         } else {
             isLoading = false
-            Toast.makeText(context, "로그인이 취소되었습니다.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "구글 로그인 취소/실패 (시뮬레이터 로그인으로 전환합니다)", Toast.LENGTH_LONG).show()
+            showSimulatedLoginDialog = true
         }
     }
 
