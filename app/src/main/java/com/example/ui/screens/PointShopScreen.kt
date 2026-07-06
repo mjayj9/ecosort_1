@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,27 +11,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.vectorResource
+import com.example.BuildConfig
+import com.example.repository.AiVisionRepository
 import com.example.util.GlobalState
-import androidx.compose.ui.platform.LocalContext
 import com.example.ui.components.AdBanner
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
-data class ShopItem(val id: Int, val name: String, val cost: Int, val isCu: Boolean = false)
+// id는 서버(functions/index.js)의 COUPON_CATALOG 키와 일치해야 한다.
+data class ShopItem(val id: String, val name: String, val cost: Int)
+
+data class IssuedCoupon(val itemName: String, val code: String, val isDemo: Boolean)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PointShopScreen() {
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var message by remember { mutableStateOf<String?>(null) }
-    var showBarcodeDialog by remember { mutableStateOf(false) }
-    
+    var issuedCoupon by remember { mutableStateOf<IssuedCoupon?>(null) }
+    var isProcessing by remember { mutableStateOf(false) }
+
     val items = listOf(
-        ShopItem(1, "CU 모바일 상품권 1,000원권", 5000, true),
-        ShopItem(2, "GS25 모바일 상품권 2,000원권", 9500),
-        ShopItem(3, "메가커피 아메리카노(HOT)", 10000)
+        ShopItem("cu1000", "CU 모바일 상품권 1,000원권", 5000),
+        ShopItem("gs2000", "GS25 모바일 상품권 2,000원권", 9500),
+        ShopItem("mega_americano", "메가커피 아메리카노(HOT)", 10000)
     )
 
     Scaffold(
@@ -41,9 +43,9 @@ fun PointShopScreen() {
                 title = { Text("에코 포인트 샵") },
                 actions = {
                     Text(
-                        text = "${GlobalState.currentPoints}P", 
-                        modifier = Modifier.padding(16.dp), 
-                        fontWeight = FontWeight.Bold, 
+                        text = "${GlobalState.currentPoints}P",
+                        modifier = Modifier.padding(16.dp),
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
                 },
@@ -59,22 +61,34 @@ fun PointShopScreen() {
         ) {
             Text("보유 포인트로 리워드를 교환하세요.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             message?.let {
                 Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            
-            if (GlobalState.isAdmin) {
+
+            // 관리자 수동 지급: debug 빌드 + 서버 custom claim 보유자에게만 노출되며,
+            // 실제 지급 여부는 서버(grantPoints)가 claim을 재검증해 결정한다.
+            if (BuildConfig.DEBUG && GlobalState.isAdmin) {
                 Button(
                     onClick = {
-                        GlobalState.currentPoints += 5000
-                        message = "관리자 권한: 5,000P 충전 완료!"
+                        coroutineScope.launch {
+                            isProcessing = true
+                            val result = JSONObject(AiVisionRepository.grantPoints(5000, "debug_admin_topup"))
+                            isProcessing = false
+                            message = if (result.has("error")) {
+                                result.getString("error")
+                            } else {
+                                GlobalState.currentPoints = result.optInt("totalPoints", GlobalState.currentPoints)
+                                "관리자 지급 완료 (서버 검증)"
+                            }
+                        }
                     },
+                    enabled = !isProcessing,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                 ) {
-                    Text("관리자 전용: +5,000P 무한 충전")
+                    Text("관리자(debug): +5,000P 지급 요청")
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -96,25 +110,29 @@ fun PointShopScreen() {
                             }
                             Button(
                                 onClick = {
-                                    if (GlobalState.currentPoints >= item.cost) {
-                                        coroutineScope.launch {
-                                            val success = com.example.repository.FirestoreRepository.exchangeCoupon(context, item.cost)
-                                            if (success) {
-                                                GlobalState.currentPoints -= item.cost
-                                                if (item.isCu) {
-                                                    showBarcodeDialog = true
-                                                } else {
-                                                    message = "'${item.name}' 교환 성공! 쿠폰함을 확인해주세요."
-                                                }
-                                            } else {
-                                                message = "교환 중 오류가 발생했거나 포인트가 부족합니다."
-                                            }
+                                    coroutineScope.launch {
+                                        isProcessing = true
+                                        message = null
+                                        // 포인트 차감 + 쿠폰 발급은 서버 트랜잭션에서 원자적으로 수행된다.
+                                        val result = try {
+                                            JSONObject(AiVisionRepository.redeemCoupon(item.id))
+                                        } catch (e: Exception) {
+                                            JSONObject().put("error", "교환 처리 중 오류가 발생했습니다.")
                                         }
-                                    } else {
-                                        message = "포인트가 부족합니다."
+                                        isProcessing = false
+                                        if (result.has("error")) {
+                                            message = result.getString("error")
+                                        } else {
+                                            GlobalState.currentPoints = result.optInt("remainingPoints", GlobalState.currentPoints)
+                                            issuedCoupon = IssuedCoupon(
+                                                itemName = result.optString("itemName", item.name),
+                                                code = result.optString("code", ""),
+                                                isDemo = result.optBoolean("isDemo", true)
+                                            )
+                                        }
                                     }
                                 },
-                                enabled = GlobalState.currentPoints >= item.cost
+                                enabled = !isProcessing && GlobalState.currentPoints >= item.cost
                             ) {
                                 Text("교환")
                             }
@@ -126,23 +144,38 @@ fun PointShopScreen() {
             AdBanner()
         }
     }
-    
-    if (showBarcodeDialog) {
+
+    issuedCoupon?.let { coupon ->
         AlertDialog(
-            onDismissRequest = { showBarcodeDialog = false },
+            onDismissRequest = { issuedCoupon = null },
             title = { Text("쿠폰 발급 완료") },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("CU 1,000원 모바일 상품권 바코드")
+                    Text(coupon.itemName)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(150.dp).background(androidx.compose.ui.graphics.Color.White), contentAlignment = Alignment.Center) {
-                        Text("||| | ||| |||| | | ||", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color.Black)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(coupon.code, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
-                    Text("5090 8025 1560 00", fontWeight = FontWeight.Bold)
+                    if (coupon.isDemo) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "⚠️ DEMO 쿠폰입니다. 실제 매장에서 사용할 수 없습니다.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("발급 내역은 마이페이지 > 교환 내역에서 확인할 수 있습니다.", style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
-                Button(onClick = { showBarcodeDialog = false }) {
+                Button(onClick = { issuedCoupon = null }) {
                     Text("닫기")
                 }
             }

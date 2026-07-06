@@ -16,3 +16,8 @@
 local.properties
 .env
 debug.keystore
+
+functions/node_modules/
+firestore-debug.log
+firebase-debug.log
+*.hprof

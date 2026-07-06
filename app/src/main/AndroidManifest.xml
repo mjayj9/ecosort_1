@@ -6,11 +6,15 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
+    <!-- 카메라가 없는 기기(ChromeOS 등)에서도 설치 가능하도록 필수 하드웨어로 선언하지 않음 -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- Photo Picker(PickVisualMedia)를 사용하므로 저장소/미디어 읽기 권한이 필요 없다 -->
+
+    <!-- allowBackup=false: 포인트/이메일 등이 담긴 SharedPreferences가 기기 백업으로 유출되지 않도록 차단 -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

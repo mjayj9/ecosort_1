@@ -1,20 +1,68 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // 심사 포인트: 영구적인 Security Rules 코드로 DB 에러 방어 및 보안 확보
-    // 유저 문서는 해당 유저 본인만 접근/수정 가능하도록 강력한 인증 제어 적용
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+    function signedIn() {
+      return request.auth != null;
     }
-    
-    // 심사 포인트: 단지별 리더보드/대시보드 데이터를 위한 규칙
-    // 누구나(혹은 로그인한 유저는) 전체 통계를 읽을 수 있게 하되,
-    // 클라이언트의 어뷰징을 막기 위해 원칙적으로 쓰기는 제한.
-    // (본 데모앱 프로토타이핑을 위해 인증된 유저의 update만 일시적 허용)
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // users/{uid}: 본인만 읽기 가능.
+    // 쓰기는 프로필 필드(apartmentId, displayName)만 허용.
+    // points, totalVerified 등 보상 관련 필드는 Cloud Functions(Admin SDK) 전용.
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['apartmentId', 'displayName']);
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['apartmentId', 'displayName']);
+      allow delete: if false; // 탈퇴는 deleteAccount Cloud Function으로만
+    }
+
+    // 단지 리더보드: 로그인 사용자 읽기 전용. totalRecycled 증가분은 서버 트랜잭션 전용.
     match /apartments/{apartmentId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // 기간별 단지 집계: 읽기 전용
+    match /apartmentStats/{periodId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // 배출 인증 기록: 본인 것만 읽기, 생성/수정은 서버 전용 (중복 제출 차단 근거)
+    match /verifications/{verificationId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // 포인트 원장(불변 로그): 본인 것만 읽기, 쓰기는 서버 전용
+    match /pointLedger/{entryId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // 쿠폰 교환 내역: 본인 것만 읽기, 발급/상태 변경은 서버 전용
+    match /redemptions/{redemptionId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // 쿠폰 재고: 코드 유출 방지를 위해 클라이언트 접근 전면 금지
+    match /couponInventory/{couponId} {
+      allow read, write: if false;
+    }
+
+    // 스캔 요약/일일 사용량: 서버 전용
+    match /scans/{scanId} {
+      allow read, write: if false;
+    }
+    match /usage/{usageId} {
+      allow read, write: if false;
     }
   }
 }

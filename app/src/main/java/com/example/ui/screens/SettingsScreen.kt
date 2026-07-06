@@ -11,12 +11,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.util.GlobalState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onLogout: () -> Unit) {
+    val coroutineScope = rememberCoroutineScope()
     var newGoal by remember { mutableStateOf(GlobalState.targetGoal.toString()) }
     var message by remember { mutableStateOf("") }
+    var isDeleting by remember { mutableStateOf(false) }
+
+    fun clearLocalState() {
+        GlobalState.userEmail = ""
+        GlobalState.apartmentId = ""
+        GlobalState.apartmentName = ""
+        GlobalState.apartmentAddress = ""
+        GlobalState.apartmentLatitude = 0.0
+        GlobalState.apartmentLongitude = 0.0
+        GlobalState.currentCount = 0
+        GlobalState.currentPoints = 0
+        GlobalState.isAdmin = false
+    }
     
     val isFirebaseAvailable = remember {
         try {
@@ -100,14 +115,7 @@ fun SettingsScreen(onLogout: () -> Unit) {
                             e.printStackTrace()
                         }
                     }
-                    GlobalState.userEmail = ""
-                    GlobalState.apartmentId = ""
-                    GlobalState.apartmentName = ""
-                    GlobalState.apartmentAddress = ""
-                    GlobalState.apartmentLatitude = 0.0
-                    GlobalState.apartmentLongitude = 0.0
-                    GlobalState.currentCount = 0
-                    GlobalState.currentPoints = 0
+                    clearLocalState()
                     onLogout()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
@@ -118,48 +126,39 @@ fun SettingsScreen(onLogout: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
                 onClick = {
-                    if (isFirebaseAvailable) {
-                        try {
-                            val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                            user?.delete()?.addOnCompleteListener {
-                                GlobalState.userEmail = ""
-                                GlobalState.apartmentId = ""
-                                GlobalState.apartmentName = ""
-                                GlobalState.apartmentAddress = ""
-                                GlobalState.apartmentLatitude = 0.0
-                                GlobalState.apartmentLongitude = 0.0
-                                GlobalState.currentCount = 0
-                                GlobalState.currentPoints = 0
-                                onLogout()
-                            }
+                    if (!isFirebaseAvailable) {
+                        clearLocalState()
+                        onLogout()
+                        return@OutlinedButton
+                    }
+                    // 탈퇴는 서버(deleteAccount)가 Firestore 개인정보 삭제/익명화까지 처리한 뒤
+                    // Auth 계정을 삭제한다. 클라이언트 단독 Auth 삭제는 DB에 개인정보를 남긴다.
+                    coroutineScope.launch {
+                        isDeleting = true
+                        val result = try {
+                            org.json.JSONObject(com.example.repository.AiVisionRepository.deleteAccount())
                         } catch (e: Exception) {
-                            e.printStackTrace()
-                            GlobalState.userEmail = ""
-                            GlobalState.apartmentId = ""
-                            GlobalState.apartmentName = ""
-                            GlobalState.apartmentAddress = ""
-                            GlobalState.apartmentLatitude = 0.0
-                            GlobalState.apartmentLongitude = 0.0
-                            GlobalState.currentCount = 0
-                            GlobalState.currentPoints = 0
+                            org.json.JSONObject().put("error", "탈퇴 처리 중 오류가 발생했습니다.")
+                        }
+                        isDeleting = false
+                        if (result.has("error")) {
+                            message = "회원 탈퇴 실패: ${result.getString("error")}"
+                        } else {
+                            try {
+                                com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                            clearLocalState()
                             onLogout()
                         }
-                    } else {
-                        GlobalState.userEmail = ""
-                        GlobalState.apartmentId = ""
-                        GlobalState.apartmentName = ""
-                        GlobalState.apartmentAddress = ""
-                        GlobalState.apartmentLatitude = 0.0
-                        GlobalState.apartmentLongitude = 0.0
-                        GlobalState.currentCount = 0
-                        GlobalState.currentPoints = 0
-                        onLogout()
                     }
                 },
+                enabled = !isDeleting,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
-                Text("회원 탈퇴 (DB 정보 삭제)")
+                Text(if (isDeleting) "탈퇴 처리 중..." else "회원 탈퇴 (DB 정보 삭제)")
             }
         }
     }

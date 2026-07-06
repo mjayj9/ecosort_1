@@ -203,6 +203,36 @@ fun AiScannerScreen() {
         return verifyLocationMatch()
     }
 
+    // 2차 인증: 서버(verifyDisposal)가 AI 교차검증 + 포인트 지급/랭킹 반영을 트랜잭션으로 수행.
+    // 클라이언트는 결과 표시만 담당하고, 포인트는 서버가 돌려준 총포인트로 갱신한다.
+    suspend fun runServerVerification(disposalBitmap: Bitmap, newHash: String, source: String) {
+        val wasteImage = capturedImage
+        if (wasteImage == null) {
+            errorMsg = "1차 스캔 이미지가 없습니다. 처음부터 다시 진행해주세요."
+            return
+        }
+        isLoading = true
+        val resultStr = AiVisionRepository.verifyDisposal(wasteImage, disposalBitmap, GlobalState.apartmentId, source)
+        isLoading = false
+        try {
+            val verifyJson = JSONObject(resultStr)
+            if (verifyJson.has("error")) {
+                errorMsg = verifyJson.getString("error")
+            } else if (verifyJson.optBoolean("통과", false)) {
+                val granted = verifyJson.optInt("지급포인트", 0)
+                GlobalState.currentPoints = verifyJson.optInt("총포인트", GlobalState.currentPoints + granted)
+                GlobalState.addRecycle(resultJson?.optString("재질", "플라스틱") ?: "플라스틱", true)
+                firstImageHash?.let { GlobalState.usedHashes.add(it) }
+                GlobalState.usedHashes.add(newHash)
+                scanStep = ScanStep.DONE
+            } else {
+                errorMsg = verifyJson.optString("사유", "분리수거함이나 올바른 배출장소가 인식되지 않았습니다. 배경에 분리수거함이 보이도록 다시 찍어주세요.")
+            }
+        } catch (e: Exception) {
+            errorMsg = "배경 인식 중 오류가 발생했습니다. 다시 시도해 주세요."
+        }
+    }
+
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
@@ -262,38 +292,9 @@ fun AiScannerScreen() {
                         imageLatitude = loc.first
                         imageLongitude = loc.second
                     }
-                    
+
                     if (verifyDisposalSecurity(newHash)) {
-                        isLoading = true
-                        val resultStr = AiVisionRepository.verifyDisposalBackground(context, capturedImage!!, bitmap)
-                        isLoading = false
-                        try {
-                            val cleanResult = resultStr?.replace("```json", "")?.replace("```", "")?.trim()
-                            val verifyJson = JSONObject(cleanResult ?: "{}")
-                            if (verifyJson.has("error")) {
-                                errorMsg = verifyJson.getString("error")
-                            } else {
-                                val isPass = verifyJson.optBoolean("통과", false)
-                                if (isPass) {
-                                    var reward = 50
-                                    if (GlobalState.currentCount + 1 == GlobalState.targetGoal) {
-                                        reward += GlobalState.targetGoal * 20
-                                    }
-                                    coroutineScope.launch {
-                                        com.example.repository.FirestoreRepository.verifyAndReward(context, GlobalState.apartmentId, reward)
-                                    }
-                                    GlobalState.addRecycle(resultJson?.optString("재질", "플라스틱") ?: "플라스틱", true)
-                                    // 사용된 해시 등록
-                                    firstImageHash?.let { GlobalState.usedHashes.add(it) }
-                                    GlobalState.usedHashes.add(newHash)
-                                    scanStep = ScanStep.DONE
-                                } else {
-                                    errorMsg = verifyJson.optString("사유", "분리수거함이나 올바른 배출장소가 인식되지 않았습니다. 배경에 분리수거함이 보이도록 다시 찍어주세요.")
-                                }
-                            }
-                        } catch (e: Exception) {
-                            errorMsg = "배경 인식 중 오류가 발생했습니다. 다시 촬영해 주세요."
-                        }
+                        runServerVerification(bitmap, newHash, source = "camera")
                     }
                 }
             }
@@ -317,37 +318,9 @@ fun AiScannerScreen() {
                     } else {
                         extractExifData(uri)
                         if (verifyDisposalSecurity(newHash)) {
-                            isLoading = true
                             coroutineScope.launch {
-                                val resultStr = AiVisionRepository.verifyDisposalBackground(context, capturedImage!!, bitmap)
-                                isLoading = false
-                                try {
-                                    val cleanResult = resultStr?.replace("```json", "")?.replace("```", "")?.trim()
-                                    val verifyJson = JSONObject(cleanResult ?: "{}")
-                                    if (verifyJson.has("error")) {
-                                        errorMsg = verifyJson.getString("error")
-                                    } else {
-                                        val isPass = verifyJson.optBoolean("통과", false)
-                                        if (isPass) {
-                                            var reward = 50
-                                            if (GlobalState.currentCount + 1 == GlobalState.targetGoal) {
-                                                reward += GlobalState.targetGoal * 20
-                                            }
-                                            coroutineScope.launch {
-                                                com.example.repository.FirestoreRepository.verifyAndReward(context, GlobalState.apartmentId, reward)
-                                            }
-                                            GlobalState.addRecycle(resultJson?.optString("재질", "플라스틱") ?: "플라스틱", true)
-                                            // 사용된 해시 등록
-                                            firstImageHash?.let { GlobalState.usedHashes.add(it) }
-                                            GlobalState.usedHashes.add(newHash)
-                                            scanStep = ScanStep.DONE
-                                        } else {
-                                            errorMsg = verifyJson.optString("사유", "분리수거함이나 올바른 배출장소가 인식되지 않았습니다. 배경에 분리수거함이 보이도록 다시 찍어주세요.")
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    errorMsg = "배경 인식 중 오류가 발생했습니다. 다시 선택해 주세요."
-                                }
+                                // 갤러리 인증은 서버에 source=gallery로 기록되어 사후 검수 대상이 된다.
+                                runServerVerification(bitmap, newHash, source = "gallery")
                             }
                         }
                     }
@@ -875,8 +848,7 @@ fun AiScannerScreen() {
                             val resultStr = AiVisionRepository.analyzeWasteImage(capturedImage!!)
                             isLoading = false
                             try {
-                                val cleanResult = resultStr?.replace("```json", "")?.replace("```", "")?.trim()
-                                resultJson = JSONObject(cleanResult ?: "{}")
+                                resultJson = JSONObject(resultStr)
                                 if (resultJson?.has("error") == true) {
                                     errorMsg = resultJson?.getString("error")
                                 } else {

@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.tasks.await
 
 object GlobalState {
     var userEmail by mutableStateOf("")
@@ -17,10 +18,26 @@ object GlobalState {
     var currentCount by mutableIntStateOf(0)
     var totalAppRecycled by mutableIntStateOf(12450)
     
-    val isAdmin: Boolean
-        get() = userEmail == "mjayj9@gmail.com" || userEmail == "2025186@snu.ms.kr"
-    
-    // 악용 방지용 일일 한도 및 이미지 해시 중복 저장 관리
+    // 관리자 여부는 이메일 비교가 아니라 Firebase custom claim(admin=true)으로만 결정된다.
+    // 로그인 직후 refreshAdminClaim()이 ID 토큰의 claim을 읽어 갱신한다.
+    var isAdmin by mutableStateOf(false)
+
+    suspend fun refreshAdminClaim() {
+        isAdmin = try {
+            val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (user == null) {
+                false
+            } else {
+                val result = user.getIdToken(true).await()
+                result.claims["admin"] == true
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // 클라이언트 측 한도/중복 체크는 UX용 사전 필터일 뿐이며,
+    // 실제 어뷰징 차단은 서버(verifications/usage 컬렉션)가 수행한다.
     var lastActiveDate by mutableStateOf("")
     var dailyCount by mutableIntStateOf(0)
     val usedHashes = mutableSetOf<String>()
@@ -34,22 +51,16 @@ object GlobalState {
         return dailyCount < 10 // 하루 10회 제한
     }
         
+    // 포인트 지급은 서버(verifyDisposal 트랜잭션) 전담. 여기서는 화면 표시용 카운터만 갱신한다.
     fun addRecycle(material: String, isSuccess: Boolean) {
         if (isSuccess && canRecycleToday()) {
             dailyCount++
             currentCount++
             totalAppRecycled++
-            
-            // 기본 보상
-            var reward = 50
-            
-            // 목표 달성 시 추가 보상 (목표치에 비례)
+
             if (currentCount == targetGoal) {
-                reward += targetGoal * 20 // 예: 10개면 200 추가, 100개면 2000 추가
-                targetGoal += 10 // 목표 상향
+                targetGoal += 10 // 목표 상향 (표시용)
             }
-            
-            currentPoints += reward
         }
     }
 
