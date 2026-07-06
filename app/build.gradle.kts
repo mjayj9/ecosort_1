@@ -4,7 +4,6 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
-  alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.services)
 }
 
@@ -44,9 +43,15 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      // R8 난독화/축소 활성화: 클라이언트 로직/문자열 노출 최소화
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      // 키스토어가 있을 때만 서명 설정 적용 (CI/검증 환경에서 unsigned 빌드 허용)
+      val releaseKeystore = file(System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks")
+      if (releaseKeystore.exists()) {
+        signingConfig = signingConfigs.getByName("release")
+      }
     }
     debug {
       val debugKeystoreFile = file("${rootDir}/debug.keystore")
@@ -99,20 +104,15 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
-  implementation(libs.converter.moshi)
   implementation(libs.firebase.auth)
   implementation(libs.firebase.firestore)
+  // AI 분석/포인트/쿠폰/탈퇴는 전부 Cloud Functions 경유 (Gemini 직접 호출 금지)
+  implementation(libs.firebase.functions)
   implementation(libs.play.services.auth)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.moshi.kotlin)
-  implementation(libs.okhttp)
   implementation(libs.play.services.location)
   implementation(libs.androidx.exifinterface)
-  implementation(libs.retrofit)
-  implementation(libs.retrofit.converter.serialization)
-  implementation(libs.kotlinx.serialization.json)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -130,5 +130,4 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
-  "ksp"(libs.moshi.kotlin.codegen)
 }
