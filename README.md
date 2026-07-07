@@ -54,9 +54,14 @@ npm install
 # 1) Gemini API 키를 Secret Manager에 등록 (앱/저장소에 절대 넣지 말 것)
 firebase functions:secrets:set GEMINI_API_KEY
 
-# 2) 함수 + Firestore 규칙 배포
-firebase deploy --only functions,firestore:rules
+# 2) 함수 + Firestore 규칙 + 복합 인덱스 배포
+#    (인덱스를 빼면 배출 인증/쿠폰 교환의 서버 쿼리가 런타임에 실패한다)
+firebase deploy --only functions,firestore:rules,firestore:indexes
 ```
+
+> `firestore.indexes.json`에는 `verifications(uid, createdAt)`,
+> `couponInventory(itemId, status)` 복합 인덱스가 정의되어 있으며,
+> 각각 `verifyDisposal`의 최근 인증 조회와 `redeemCoupon`의 재고 조회에 필요하다.
 
 ## 관리자 지정 (custom claim)
 
