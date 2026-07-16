@@ -15,6 +15,7 @@ import com.example.BuildConfig
 import com.example.repository.AiVisionRepository
 import com.example.util.GlobalState
 import com.example.ui.components.AdBanner
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -26,6 +27,7 @@ data class IssuedCoupon(val itemName: String, val code: String, val isDemo: Bool
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PointShopScreen() {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var message by remember { mutableStateOf<String?>(null) }
     var issuedCoupon by remember { mutableStateOf<IssuedCoupon?>(null) }
@@ -74,7 +76,7 @@ fun PointShopScreen() {
                     onClick = {
                         coroutineScope.launch {
                             isProcessing = true
-                            val result = JSONObject(AiVisionRepository.grantPoints(5000, "debug_admin_topup"))
+                            val result = JSONObject(AiVisionRepository.grantPoints(context, 5000, "debug_admin_topup"))
                             isProcessing = false
                             message = if (result.has("error")) {
                                 result.getString("error")
@@ -115,7 +117,7 @@ fun PointShopScreen() {
                                         message = null
                                         // 포인트 차감 + 쿠폰 발급은 서버 트랜잭션에서 원자적으로 수행된다.
                                         val result = try {
-                                            JSONObject(AiVisionRepository.redeemCoupon(item.id))
+                                            JSONObject(AiVisionRepository.redeemCoupon(context, item.id))
                                         } catch (e: Exception) {
                                             JSONObject().put("error", "교환 처리 중 오류가 발생했습니다.")
                                         }

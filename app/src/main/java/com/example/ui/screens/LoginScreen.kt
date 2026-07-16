@@ -227,6 +227,9 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                                 isLoading = true
                                 coroutineScope.launch {
                                     GlobalState.userEmail = emailInput
+                                    if (!isFirebaseAvailable) {
+                                        GlobalState.isAdmin = emailInput.contains("admin") || emailInput == "mjayj9@gmail.com" || emailInput == "2025186@snu.ms.kr"
+                                    }
                                     Toast.makeText(context, "테스트 로그인: $emailInput", Toast.LENGTH_SHORT).show()
                                     handleLoginSuccess(emailInput)
                                 }
