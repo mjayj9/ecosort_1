@@ -1,13 +1,20 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.util.GlobalState
@@ -17,7 +24,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(onLogout: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
     var newGoal by remember { mutableStateOf(GlobalState.targetGoal.toString()) }
+    var apiKeyInput by remember { mutableStateOf(GlobalState.userApiKey) }
+    var showApiKey by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var isDeleting by remember { mutableStateOf(false) }
 
@@ -55,6 +65,7 @@ fun SettingsScreen(onLogout: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
             Text("사용자 정보", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
@@ -104,7 +115,106 @@ fun SettingsScreen(onLogout: () -> Unit) {
                 progress = { (GlobalState.currentCount.toFloat() / GlobalState.targetGoal).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(8.dp)
             )
-            Spacer(modifier = Modifier.height(48.dp))
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Text("API 설정", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "자신만의 Gemini API 키를 등록하여 분리배출 인식을 이용할 수 있습니다. 등록하지 않으면 공용 API 키를 사용합니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            OutlinedTextField(
+                value = apiKeyInput,
+                onValueChange = { apiKeyInput = it },
+                label = { Text("Gemini API Key") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (showApiKey) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    val description = if (showApiKey) "API 키 숨기기" else "API 키 보이기"
+                    IconButton(onClick = { showApiKey = !showApiKey }) {
+                        Icon(imageVector = image, contentDescription = description)
+                    }
+                }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        GlobalState.saveApiKey(context, apiKeyInput.trim())
+                        message = "API 키가 성공적으로 저장되었습니다."
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("API 키 저장")
+                }
+                
+                if (GlobalState.userApiKey.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = {
+                            GlobalState.saveApiKey(context, "")
+                            apiKeyInput = ""
+                            message = "API 키가 삭제되었습니다. 공용 API 키를 사용합니다."
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("API 키 삭제")
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Surface(
+                color = if (GlobalState.userApiKey.isNotEmpty()) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.secondaryContainer
+                },
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = "상태",
+                        tint = if (GlobalState.userApiKey.isNotEmpty()) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.secondary
+                        },
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (GlobalState.userApiKey.isNotEmpty()) {
+                            "현재 사용자 정의 API 키를 사용 중입니다."
+                        } else {
+                            "현재 공용 API 키를 사용 중입니다."
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (GlobalState.userApiKey.isNotEmpty()) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
             
             Button(
                 onClick = {

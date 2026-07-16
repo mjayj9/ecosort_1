@@ -89,7 +89,7 @@ async function enforceDailyLimit(uid, kind, limit) {
 }
 
 // Gemini 호출: 서버에서만 프롬프트를 만들고 JSON schema를 강제한다.
-async function callGemini(parts, responseSchema) {
+async function callGemini(parts, responseSchema, customApiKey) {
   const body = {
     contents: [{ parts }],
     generationConfig: {
@@ -101,11 +101,12 @@ async function callGemini(parts, responseSchema) {
 
   let response;
   try {
+    const keyToUse = (customApiKey && customApiKey.trim()) || geminiApiKey.value();
     response = await fetch(GEMINI_ENDPOINT(GEMINI_MODEL), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": geminiApiKey.value(),
+        "x-goog-api-key": keyToUse,
       },
       body: JSON.stringify(body),
     });
@@ -206,7 +207,8 @@ exports.analyzeImage = onCall(
         { text: ANALYZE_PROMPT },
         { inlineData: { mimeType: "image/jpeg", data: image } },
       ],
-      ANALYZE_SCHEMA
+      ANALYZE_SCHEMA,
+      request.data?.apiKey
     );
 
     // 분석 요약을 남겨 2차 인증(verifyDisposal)에서 1차 분석 존재 여부를 검증할 수 있게 한다.
@@ -300,7 +302,8 @@ exports.verifyDisposal = onCall(
         { inlineData: { mimeType: "image/jpeg", data: wasteImage } },
         { inlineData: { mimeType: "image/jpeg", data: disposalImage } },
       ],
-      VERIFY_SCHEMA
+      VERIFY_SCHEMA,
+      request.data?.apiKey
     );
 
     const passed = aiResult["통과"] === true;

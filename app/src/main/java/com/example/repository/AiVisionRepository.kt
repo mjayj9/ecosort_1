@@ -89,7 +89,11 @@ object AiVisionRepository {
 
     /** 1차 오염도 분석. 결과는 서버가 schema를 강제한 JSON 문자열. */
     suspend fun analyzeWasteImage(bitmap: Bitmap): String = withContext(Dispatchers.IO) {
-        call("analyzeImage", mapOf("image" to bitmap.toBase64AndResize()))
+        val data = mutableMapOf<String, Any>("image" to bitmap.toBase64AndResize())
+        if (com.example.util.GlobalState.userApiKey.isNotBlank()) {
+            data["apiKey"] = com.example.util.GlobalState.userApiKey
+        }
+        call("analyzeImage", data)
     }
 
     /**
@@ -102,15 +106,16 @@ object AiVisionRepository {
         apartmentId: String,
         source: String
     ): String = withContext(Dispatchers.IO) {
-        call(
-            "verifyDisposal",
-            mapOf(
-                "wasteImage" to wasteBitmap.toBase64AndResize(),
-                "disposalImage" to disposalBitmap.toBase64AndResize(),
-                "apartmentId" to apartmentId,
-                "source" to source
-            )
+        val data = mutableMapOf<String, Any>(
+            "wasteImage" to wasteBitmap.toBase64AndResize(),
+            "disposalImage" to disposalBitmap.toBase64AndResize(),
+            "apartmentId" to apartmentId,
+            "source" to source
         )
+        if (com.example.util.GlobalState.userApiKey.isNotBlank()) {
+            data["apiKey"] = com.example.util.GlobalState.userApiKey
+        }
+        call("verifyDisposal", data)
     }
 
     /** 포인트샵 쿠폰 교환. 차감/발급은 서버 트랜잭션에서만 수행. */

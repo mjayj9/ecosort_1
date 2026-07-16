@@ -17,6 +17,26 @@ object GlobalState {
     var targetGoal by mutableIntStateOf(10)
     var currentCount by mutableIntStateOf(0)
     var totalAppRecycled by mutableIntStateOf(12450)
+    var userApiKey by mutableStateOf("")
+    
+    fun loadApiKey(context: android.content.Context) {
+        try {
+            val sharedPreferences = context.getSharedPreferences("ecosort_prefs", android.content.Context.MODE_PRIVATE)
+            userApiKey = sharedPreferences.getString("gemini_api_key", "") ?: ""
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun saveApiKey(context: android.content.Context, key: String) {
+        try {
+            val sharedPreferences = context.getSharedPreferences("ecosort_prefs", android.content.Context.MODE_PRIVATE)
+            sharedPreferences.edit().putString("gemini_api_key", key).apply()
+            userApiKey = key
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
     
     // 관리자 여부는 이메일 비교가 아니라 Firebase custom claim(admin=true)으로만 결정된다.
     // 로그인 직후 refreshAdminClaim()이 ID 토큰의 claim을 읽어 갱신한다.
